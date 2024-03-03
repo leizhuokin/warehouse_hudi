@@ -19,7 +19,8 @@ CREATE TABLE if not exists `activity_info_cdc`  (
     'password' = '123456',
     'database-name' = 'commerce',
     'table-name' = 'activity_info');
-    
+
+
 CREATE TABLE if not exists `activity_rule_cdc`  (
   `id` int,
   `activity_id` int,
