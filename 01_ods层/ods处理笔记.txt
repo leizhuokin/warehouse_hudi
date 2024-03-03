@@ -1,0 +1,14 @@
+ODS层 数据入湖
+(1) 用户日志  kafka的topic_log中 流式数据
+    flink-sql-client  使用kafka的连接器  直接映射kafka中的主题数据
+	insert into hudi表 select * from kafka_log
+	将数据写入到hudi当中
+重复启动ods insert任务 会造成数据重复  
+hudi对于表格的去重  仅限于compaction之后保留一份完整的新版本数据  
+对于事实传输的数据不会去重(1.使用ck重启任务  2.删除原先的数据)
+
+(2) 业务数据  mysql的gmall表格中  数据库数据
+    1. 对表格数据进行实时监控 -> flinkCDC (和flinkSQL兼容性更好,能够直接拿原始数据)
+	转换为流式数据
+	insert into hudi表  select * from 数据库表(1次只能写1个) 最终有n张表需要启动n个任务
+	将数据写入到hudi当中

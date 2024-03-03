@@ -1,0 +1,20 @@
+#查看job列表
+bin/flink list -t yarn-session -Dyarn.application.id=<appid>
+application_1668129237680_0001
+//直接触发
+flink savepoint <jobId> [targetDirectory] [-yid yarnAppId] #on yarn模式需要指定-yid参数
+//cancel触发
+flink cancel -s [targetDirectory] <jobId> [-yid yarnAppId] #on yarn模式需要指定-yid参数
+
+./bin/flink cancel -s hdfs://hadoop102:8020/sp0509 jobid -yid appid
+./bin/flink cancel -s hdfs://hadoop102:8020/sp0509 37f5e68870012b18fd6067879de89aa0 -yid application_1667521733386_0001
+
+-- 从savepoint恢复
+-- 先设置恢复路径 
+SET execution.savepoint.path = 'hdfs://hadoop102:8020/sp0509/savepoint-37f5e6-0013a2874f0a';  
+-- 之后直接提交sql，就会从savepoint恢复
+
+
+--允许跳过无法还原的保存点状态
+set 'execution.savepoint.ignore-unclaimed-state' = 'true'; 
+

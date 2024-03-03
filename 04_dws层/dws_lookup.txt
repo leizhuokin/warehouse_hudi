@@ -1,0 +1,88 @@
+CREATE TABLE hudi_dws.dws_trade_province_order_1d_lookup
+(
+    `province_id`               INT,
+    `province_name`             varchar(20),
+    `area_code`                 varchar(20),
+    `iso_code`                  varchar(20),
+    `iso_3166_2`                varchar(20),
+    `order_count_1d`            BIGINT,
+    `order_original_amount_1d`  DECIMAL(16, 2),
+    `activity_reduce_amount_1d` DECIMAL(16, 2),
+    `coupon_reduce_amount_1d`   DECIMAL(16, 2),
+    `order_total_amount_1d`     DECIMAL(16, 2),
+    `ts`                        TIMESTAMP(3),
+    `dt`                        STRING
+) 
+PARTITIONED BY (`dt`) 
+WITH (
+    'connector'='hudi',
+    'path' ='hdfs://node01:9000/hudi/warehouse/hudi_dws/dws_trade_province_order_1d_lookup',
+    'table.type'='MERGE_ON_READ',
+    'hoodie.datasource.write.recordkey.field' = 'province_id',
+    'hoodie.datasource.write.precombine.field' = 'ts',
+    'write.bucket_assign.tasks'='1',
+    'write.tasks' = '1', 
+    'compaction.tasks' = '1',
+    'compaction.async.enabled' = 'true',
+    'compaction.schedule.enabled' = 'true',
+    'compaction.trigger.strategy' = 'time_elapsed',
+    'compaction.delta_seconds' = '259200',
+    'read.streaming.enabled' = 'true',
+    'changelog.enabled' = 'true',
+    'read.streaming.skip_compaction' = 'true',
+    'hive_sync.enable'='true',
+    'hive_sync.mode' = 'hms',
+    'hive_sync.metastore.uris' = 'thrift://node01:9083',
+    'hive_sync.db'='hive_dws',
+    'hive_sync.table'='dws_trade_province_order_1d'
+);
+
+
+
+insert into hudi_dws.dws_trade_province_order_1d_lookup
+select
+    province_id,
+    name province_name,
+    area_code,
+    iso_code,
+    iso_3166_2,
+    order_count_1d,
+    order_original_amount_1d,
+    activity_reduce_amount_1d,
+    coupon_reduce_amount_1d,
+    order_total_amount_1d,
+    LOCALTIMESTAMP as ts,
+    dt
+from
+(
+    select
+        province_id,
+        count(distinct(order_id)) order_count_1d,
+        sum(split_original_amount) order_original_amount_1d,
+        sum(nvl(split_activity_amount,0)) activity_reduce_amount_1d,
+        sum(nvl(split_coupon_amount,0)) coupon_reduce_amount_1d,
+        sum(split_total_amount) order_total_amount_1d,
+        PROCTIME() ts,
+        dt
+    from hudi_dwd.dwd_trade_order_detail/*+ OPTIONS('read.tasks'='1','read.start-commit'='earliest')*/
+    group by province_id,dt 
+)o
+join mysql.sql_province FOR SYSTEM_TIME AS OF o.ts as p
+on o.province_id=p.id;
+
+CREATE TABLE sql_province (
+  `id` bigint,
+  `name` varchar(20),
+  `region_id` varchar(20),
+  `area_code` varchar(20),
+  `iso_code` varchar(20),
+  `iso_3166_2` varchar(20)
+) WITH (
+  'connector' = 'jdbc',
+  'url' = 'jdbc:mysql://node03:3306/commerce',
+  'table-name' = 'base_province',
+  'username'='root',
+  'password'='123456',
+  'lookup.cache.ttl'='1 hour',
+    'lookup.cache.max-rows'='100'
+);
